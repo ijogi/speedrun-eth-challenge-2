@@ -5,9 +5,13 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import './YourToken.sol';
 
 error NoFundsIncluded();
+error FailedToGetNrOfAvailableTokens();
+error NotEnoughTokensAvailable(uint256 available, uint256 requested);
 error TransferingTokensFromTokenContract(address buyer, uint256 amountOfEth, uint256 amountOfTokens);
 error WithdrawalsEnabledOnlyForOwner();
 error WithdrawalFailed(address sender, uint256 amount);
+error AmountMustBeGreaterThanZero();
+error AmountToSellIsHigherThanCurrentlyAllowed(uint256 allowance, uint256 amount);
 error ErrorTransferingTokensCheckApproval();
 error ErrorTransferingEther(address contractAddress, uint256 amount);
 
@@ -21,7 +25,7 @@ contract Vendor is Ownable {
   event TransferTokens(address indexed seller, uint256 amount);
   event SellTokens(address indexed seller, uint256 amountOfEth, uint256 amountOfTokens);
 
-  constructor(address tokenAddress) public {
+  constructor(address tokenAddress) {
     yourToken = YourToken(tokenAddress);
   }
 
@@ -57,18 +61,36 @@ contract Vendor is Ownable {
   }
 
   function sellTokens(uint256 amount) external payable {
-    try yourToken.transferFrom(msg.sender, address(this), amount) {
-      emit TransferTokens(msg.sender, amount);
-    } catch {
-      revert ErrorTransferingTokensCheckApproval();
-    }
+    _transferTokensToContract(amount);
 
     uint256 amountOfEth = amount / 100;
+
     (bool result, ) = msg.sender.call{value: amountOfEth}('');
     if (!result) {
       revert ErrorTransferingEther(address(this), amountOfEth);
     }
 
     emit SellTokens(msg.sender, amountOfEth, amount);
+  }
+
+  function _transferTokensToContract(uint256 amount) private {
+    address sender = msg.sender;
+    address contractAddress = address(this);
+
+    if (amount == 0) {
+      revert AmountMustBeGreaterThanZero();
+    }
+
+    uint256 allowed = yourToken.allowance(sender, contractAddress);
+
+    if (amount > allowed) {
+      revert AmountToSellIsHigherThanCurrentlyAllowed(allowed, amount);
+    }
+
+    try yourToken.transferFrom(sender, contractAddress, amount) {
+      emit TransferTokens(sender, amount);
+    } catch {
+      revert ErrorTransferingTokensCheckApproval();
+    }
   }
 }
