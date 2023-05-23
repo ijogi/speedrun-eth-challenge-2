@@ -4,8 +4,7 @@ pragma solidity >=0.8.0 <0.9.0;
 import '@openzeppelin/contracts/access/Ownable.sol';
 import './YourToken.sol';
 
-error NoFundsIncluded();
-error TransferingTokensFromTokenContract(address buyer, uint256 amountOfEth, uint256 amountOfTokens);
+error ErrorTransferingTokensFromTokenContract(address buyer, uint256 amountOfEth, uint256 amountOfTokens);
 error WithdrawalFailed(address sender, uint256 amount);
 error ErrorTransferingTokensCheckApproval();
 error ErrorTransferingEther(address contractAddress, uint256 amount);
@@ -25,29 +24,24 @@ contract Vendor is Ownable {
   }
 
   function buyTokens() external payable {
-    if (msg.value == 0) {
-      revert NoFundsIncluded();
-    }
-
     uint256 amountOfTokens = msg.value * tokensPerEth;
 
     try yourToken.transfer(msg.sender, amountOfTokens) {
       emit BuyTokens(msg.sender, amountOfTokens, msg.value);
     } catch {
-      revert TransferingTokensFromTokenContract(msg.sender, amountOfTokens, msg.value);
+      revert ErrorTransferingTokensFromTokenContract(msg.sender, amountOfTokens, msg.value);
     }
   }
 
   function withdraw() external onlyOwner {
-    address sender = msg.sender;
     uint256 amount = address(this).balance;
 
-    (bool result, ) = sender.call{value: amount}('');
+    (bool result, ) = msg.sender.call{value: amount}('');
     if (!result) {
-      revert WithdrawalFailed(sender, amount);
+      revert WithdrawalFailed(msg.sender, amount);
     }
 
-    emit Withdrawal(sender, amount);
+    emit Withdrawal(msg.sender, amount);
   }
 
   function sellTokens(uint256 amount) external payable {
