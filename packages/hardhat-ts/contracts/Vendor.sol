@@ -6,10 +6,7 @@ import './YourToken.sol';
 
 error NoFundsIncluded();
 error TransferingTokensFromTokenContract(address buyer, uint256 amountOfEth, uint256 amountOfTokens);
-error WithdrawalsEnabledOnlyForOwner();
 error WithdrawalFailed(address sender, uint256 amount);
-error AmountMustBeGreaterThanZero();
-error AmountToSellIsHigherThanCurrentlyAllowed(uint256 allowance, uint256 amount);
 error ErrorTransferingTokensCheckApproval();
 error ErrorTransferingEther(address contractAddress, uint256 amount);
 
@@ -41,13 +38,8 @@ contract Vendor is Ownable {
     }
   }
 
-  function withdraw() external {
+  function withdraw() external onlyOwner {
     address sender = msg.sender;
-
-    if (sender != owner()) {
-      revert WithdrawalsEnabledOnlyForOwner();
-    }
-
     uint256 amount = address(this).balance;
 
     (bool result, ) = sender.call{value: amount}('');
